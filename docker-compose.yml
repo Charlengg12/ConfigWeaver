@@ -1,0 +1,115 @@
+services:
+  # Backend API (FastAPI)
+  backend:
+    build:
+      context: ./backend
+    container_name: configweaver-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/configweaver
+    depends_on:
+      - db
+    networks:
+      - configweaver-net
+    volumes:
+      - ./backend:/app
+
+  # Frontend (React + Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: configweaver-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - configweaver-net
+    # Mount for hot reloading during dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+  # Database (PostgreSQL)
+  db:
+    image: postgres:15-alpine
+    container_name: configweaver-db
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=configweaver
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - configweaver-net
+
+  # Monitoring Stack
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: configweaver-prometheus
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - configweaver-net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: configweaver-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - configweaver-net
+
+  snmp-exporter:
+    image: prom/snmp-exporter
+    container_name: configweaver-snmp-exporter
+    ports:
+      - "9116:9116"
+    networks:
+      - configweaver-net
+    volumes:
+      - ./monitoring/snmp.yml:/etc/snmp_exporter/snmp.yml
+
+  # VPN Connectivity
+  wireguard:
+    image: linuxserver/wireguard:latest
+    container_name: configweaver-wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - ./wireguard-config:/config
+      - /lib/modules:/lib/modules
+    ports:
+      - "51820:51820/udp"
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+    networks:
+      - configweaver-net
+    restart: unless-stopped
+
+networks:
+  configweaver-net:
+    driver: bridge
+
+volumes:
+  postgres_data:

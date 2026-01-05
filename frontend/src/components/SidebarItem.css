@@ -1,0 +1,27 @@
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+    margin-bottom: 4px;
+}
+
+.sidebar-item:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.sidebar-item.active {
+    background-color: rgba(59, 130, 246, 0.1);
+    /* Blue with opacity */
+    color: var(--accent-color);
+    border-left: 3px solid var(--accent-color);
+}
+
+.label {
+    font-weight: 500;
+    font-size: 0.95rem;
+}
