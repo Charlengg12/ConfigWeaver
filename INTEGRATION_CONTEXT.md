@@ -30,7 +30,7 @@
 - Port allocations:
     - 8000: Backend
     - 5173: Frontend
-    - 5432: Postgres (ConfigWeaver)
+    - 5432: Postgres (NetworkWeaver)
     - 9090: Prometheus
     - 3000: Grafana
     - 9116: SNMP Exporter

@@ -3,15 +3,15 @@ services:
   backend:
     build:
       context: ./backend
-    container_name: configweaver-backend
+    container_name: networkweaver-backend
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://user:password@db:5432/configweaver
+      - DATABASE_URL=postgresql://user:password@db:5432/networkweaver
     depends_on:
       - db
     networks:
-      - configweaver-net
+      - networkweaver-net
     volumes:
       - ./backend:/app
 
@@ -20,7 +20,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: configweaver-frontend
+    container_name: networkweaver-frontend
     ports:
       - "5173:5173"
     environment:
@@ -28,7 +28,7 @@ services:
     depends_on:
       - backend
     networks:
-      - configweaver-net
+      - networkweaver-net
     # Mount for hot reloading during dev
     volumes:
       - ./frontend:/app
@@ -37,30 +37,30 @@ services:
   # Database (PostgreSQL)
   db:
     image: postgres:15-alpine
-    container_name: configweaver-db
+    container_name: networkweaver-db
     environment:
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=configweaver
+      - POSTGRES_DB=networkweaver
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - configweaver-net
+      - networkweaver-net
 
   # Monitoring Stack
   prometheus:
     image: prom/prometheus:latest
-    container_name: configweaver-prometheus
+    container_name: networkweaver-prometheus
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
     networks:
-      - configweaver-net
+      - networkweaver-net
 
   grafana:
     image: grafana/grafana:latest
-    container_name: configweaver-grafana
+    container_name: networkweaver-grafana
     ports:
       - "3000:3000"
     environment:
@@ -74,22 +74,22 @@ services:
     depends_on:
       - prometheus
     networks:
-      - configweaver-net
+      - networkweaver-net
 
   snmp-exporter:
     image: prom/snmp-exporter
-    container_name: configweaver-snmp-exporter
+    container_name: networkweaver-snmp-exporter
     ports:
       - "9116:9116"
     networks:
-      - configweaver-net
+      - networkweaver-net
     volumes:
       - ./monitoring/snmp.yml:/etc/snmp_exporter/snmp.yml
 
   # VPN Connectivity
   wireguard:
     image: linuxserver/wireguard:latest
-    container_name: configweaver-wireguard
+    container_name: networkweaver-wireguard
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
@@ -104,7 +104,7 @@ services:
     sysctls:
       - net.ipv4.conf.all.src_valid_mark=1
     networks:
-      - configweaver-net
+      - networkweaver-net
     restart: unless-stopped
 
   # RouterOS Services (Isolated)
@@ -118,7 +118,7 @@ services:
     ports:
       - "5433:5432"
     networks:
-      - configweaver-net
+      - networkweaver-net
     volumes:
       - routeros_postgres_data:/var/lib/postgresql/data
 
@@ -128,7 +128,7 @@ services:
     ports:
       - "9091:9090"
     networks:
-      - configweaver-net
+      - networkweaver-net
     volumes:
       - routeros_prometheus_data:/prometheus
 
@@ -138,14 +138,14 @@ services:
     ports:
       - "3001:3000"
     networks:
-      - configweaver-net
+      - networkweaver-net
     depends_on:
       - routeros-prometheus
     volumes:
       - routeros_grafana_data:/var/lib/grafana
 
 networks:
-  configweaver-net:
+  networkweaver-net:
     driver: bridge
 
 volumes:

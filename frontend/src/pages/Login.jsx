@@ -41,7 +41,7 @@ const Login = () => {
                         <Lock size={32} />
                     </div>
                     <h1>Welcome Back</h1>
-                    <p>Sign in to ConfigWeaver</p>
+                    <p>Sign in to NetworkWeaver</p>
                 </div>
 
                 <form onSubmit={handleLogin} className="login-form">

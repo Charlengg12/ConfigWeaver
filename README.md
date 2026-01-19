@@ -1,6 +1,6 @@
-# ConfigWeaver
+# NetworkWeaver
 
-ConfigWeaver is a network configuration management tool designed for MikroTik routers. It uses a microservices architecture to ensure modularity and scalability.
+NetworkWeaver is a network configuration management tool designed for MikroTik routers. It uses a microservices architecture to ensure modularity and scalability.
 
 ## Architecture
 

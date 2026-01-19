@@ -47,7 +47,7 @@ def deploy_configuration(request: schemas.ConfigRequest, db: Session = Depends(g
                 chain="forward", 
                 action="drop", 
                 layer7_protocol=f"block_{target_url}",
-                comment=f"Blocked by ConfigWeaver: {target_url}"
+                comment=f"Blocked by NetworkWeaver: {target_url}"
             )
             
             details = f"Blocked access to {target_url} (L7 + Filter Rule)"

@@ -1,32 +1,32 @@
 /* RouterOS Tab Styles */
 .tabs-container {
     background-color: transparent;
-    border-radius: 8px;
+    border-radius: 12px;
     overflow: hidden;
 }
 
 .tabs-header {
     display: flex;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    border-bottom: 1px solid var(--border-color);
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+    border-bottom: 1px solid var(--glass-border);
 }
 
 .tab-btn {
     background: transparent;
     border: none;
-    padding: 1rem 1.5rem;
-    font-size: 1rem;
+    padding: 0.75rem 0.25rem;
+    font-size: 0.925rem;
     font-weight: 500;
     color: var(--text-secondary);
     cursor: pointer;
     border-bottom: 2px solid transparent;
     transition: all 0.2s;
+    margin-bottom: -1px;
 }
 
 .tab-btn:hover {
     color: var(--text-primary);
-    background-color: rgba(255, 255, 255, 0.05);
     /* Subtle hover bg */
 }
 
@@ -37,17 +37,17 @@
 }
 
 .tab-content {
-    min-height: 400px;
+    min-height: 500px;
 }
 
 .fade-in {
-    animation: fadeIn 0.3s ease-in-out;
+    animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @keyframes fadeIn {
     from {
         opacity: 0;
-        transform: translateY(5px);
+        transform: translateY(8px);
     }
 
     to {

@@ -5,7 +5,7 @@ from .routers import configuration, auth, devices, routeros
 # Create tables (In production, use Alembic)
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="ConfigWeaver API")
+app = FastAPI(title="NetworkWeaver API")
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -24,7 +24,7 @@ app.include_router(routeros.router)
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to ConfigWeaver API"}
+    return {"message": "Welcome to NetworkWeaver API"}
 
 @app.get("/health")
 def health_check():
