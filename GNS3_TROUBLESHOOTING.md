@@ -1,10 +1,24 @@
 # GNS3 Setup Error Solutions
 
-## Error: "Cannot use a node on the GNS3 VM server with the GNS3 VM not configured"
+## Common Errors During MikroTik Installation
+
+### Error 1: "Cannot use a node on the GNS3 VM server with the GNS3 VM not configured"
 
 ![GNS3 VM Error](C:/Users/Ronald/.gemini/antigravity/brain/6012d7aa-91fb-481e-a914-b85987ee6267/uploaded_image_1769154464007.png)
 
 This error occurs when GNS3 tries to use the GNS3 VM but it's not properly set up.
+
+### Error 2: "No compatible Qemu binary selected" + "Could not find VBoxManage"
+
+![Multiple GNS3 Errors](C:/Users/Ronald/.gemini/antigravity/brain/6012d7aa-91fb-481e-a914-b85987ee6267/uploaded_image_1769155029428.png)
+
+These errors mean:
+- **VBoxManage error**: GNS3 is trying to use VirtualBox but it's not installed or not in PATH
+- **No compatible Qemu binary**: No QEMU installation found for running appliances locally
+- **Waiting for localhost:3080**: GNS3 is trying to connect to the GNS3 VM server
+
+> [!IMPORTANT]
+> **STOP! Don't struggle with GNS3 VM setup.** The easiest fix is to use **Local Server** instead. See Solution 1 below.
 
 ---
 
@@ -12,29 +26,88 @@ This error occurs when GNS3 tries to use the GNS3 VM but it's not properly set u
 
 This is the **easiest solution** - run appliances directly on your Windows machine.
 
-### Steps:
+### IMMEDIATE FIX - Cancel Current Installation:
 
-1. **During MikroTik Import**:
-   - When you see the "Qemu settings" screen (before the error)
-   - Look for **"Server"** dropdown at the top
-   - Change from `GNS3 VM` to **`Local server`**
-   
-2. **Set as Default**:
-   - Go to **Edit → Preferences**
-   - Navigate to **Server** section
-   - Under "Local server", ensure it's enabled
-   - Set as default compute server
+1. **Click "Cancel"** button in the installation dialog (bottom right)
+2. Close any error popups
+3. We'll start fresh with proper settings
 
-3. **Retry Installation**:
-   - Delete the failed MikroTik appliance
-   - File → New template
-   - Install MikroTik CHR again
-   - This time it will use your local machine
+### Steps to Fix:
+
+#### Step 1: Configure GNS3 to Use Local Server
+
+1. In GNS3, go to **Edit → Preferences**
+2. Click on **Server** in the left panel
+3. Under **Local server settings**:
+   - ✅ Check **"Enable the local server"**
+   - Note the port (usually 3080)
+   - Leave other settings as default
+4. Click **OK**
+
+#### Step 2: Ensure QEMU is Installed
+
+GNS3 needs QEMU to run routers. If it wasn't installed:
+
+1. **Close GNS3 completely**
+2. Go to Windows **Add/Remove Programs**
+3. Find **GNS3**
+4. Click **Modify** or **Repair**
+5. In the installer, ensure these are checked:
+   - ✅ **QEMU** (CRITICAL!)
+   - ✅ Dynamips
+   - ✅ VPCS
+6. Complete the installation
+7. **Restart your computer**
+
+**Alternative - Manual QEMU Installation:**
+```powershell
+# Download QEMU from: https://qemu.weilnetz.de/w64/
+# Install it, then add to GNS3:
+# Edit → Preferences → QEMU → Qemu binaries
+```
+
+#### Step 3: Disable GNS3 VM (Since You Don't Have It)
+
+1. **Edit → Preferences**
+2. Click **GNS3 VM** in left panel
+3. ✅ **UNCHECK** "Enable the GNS3 VM"
+4. Click **OK**
+
+This tells GNS3 to stop looking for the GNS3 VM!
+
+#### Step 4: Verify Local Server is Running
+
+1. In GNS3, look at the bottom right corner
+2. You should see a **green circle** with text like:
+   ```
+   Local server (127.0.0.1:3080)
+   ```
+3. If it's **red**, GNS3 server isn't running:
+   - **Edit → Preferences → Server → Local server**
+   - Click **"Restart local server"**
+
+#### Step 5: Retry MikroTik Installation
+
+Now retry installing MikroTik:
+
+1. **File → New template**
+2. Select **"Install an appliance from the GNS3 server"**
+3. Search for **"MikroTik"**
+4. Select **"MikroTik Cloud Hosted Router"**
+5. **IMPORTANT**: When you see server selection:
+   - Ensure it says **"local"** or **"Local server"**
+   - If not, there's a dropdown - select **"local"**
+6. Continue with installation
+7. When asked for QEMU binary:
+   - Select the latest version (e.g., `qemu-system-x86_64.exe`)
+8. Import your MikroTik `.img` file
+9. **Finish**
 
 ### Requirements for Local Server:
-- ✅ Good RAM (8GB+ recommended)
-- ✅ Modern CPU with virtualization enabled
-- ✅ Windows with QEMU installed (comes with GNS3)
+- ✅ QEMU installed (comes with GNS3)
+- ✅ Virtualization enabled in BIOS
+- ✅ 8GB+ RAM recommended
+- ✅ Modern CPU
 
 ---
 

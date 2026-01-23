@@ -61,8 +61,11 @@ If you want NetworkWeaver in a VM instead of your Windows host:
    - ✅ Install Solar-PuTTY (optional)
 
 3. Choose setup type:
-   - Select **"Run appliances in a virtual machine"**
-   - Or **"Run appliances on my computer"** if you have powerful hardware
+   - **Recommended**: **"Run appliances on my computer"** (Local Server)
+   - Or **"Run appliances in a virtual machine"** (GNS3 VM - requires additional setup)
+
+> [!TIP]
+> For this lab with 1-2 MikroTik routers, **Local Server** is simpler and works great! If you encounter errors about "GNS3 VM not configured", see [`GNS3_TROUBLESHOOTING.md`](file:///c:/Users/Ronald/Desktop/NetworkWeaver/ConfigWeaver/GNS3_TROUBLESHOOTING.md)
 
 ### Step 2: Configure GNS3 with VMware
 
