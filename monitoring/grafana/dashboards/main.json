@@ -171,7 +171,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "rate(ifOctets{instance=\"$instance\"}[1m]) * 8",
+          "expr": "rate(ifHCInOctets{instance=\"$instance\"}[1m]) * 8",
           "legendFormat": "Inbound {{interface}}",
           "range": true,
           "refId": "A"
@@ -182,7 +182,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "rate(ifOutOctets{instance=\"$instance\"}[1m]) * 8",
+          "expr": "rate(ifHCOutOctets{instance=\"$instance\"}[1m]) * 8",
           "legendFormat": "Outbound {{interface}}",
           "range": true,
           "refId": "B"
@@ -387,6 +387,168 @@
       ],
       "title": "Memory Usage",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 0,
+                  "text": "DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "UP"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "up{instance=\"$instance\"}",
+          "legendFormat": "Device Status",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Device Status",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "UP"
+                },
+                "2": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "DOWN"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ifOperStatus{instance=\"$instance\"}",
+          "legendFormat": "{{ifDescr}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Interface Link Status",
+      "type": "stat"
     }
   ],
   "refresh": "10s",
@@ -405,7 +567,7 @@
           "type": "prometheus",
           "uid": "Prometheus"
         },
-        "definition": "label_values(sysUpTime, instance)",
+        "definition": "label_values(up, instance)",
         "hide": 0,
         "includeAll": false,
         "label": "Device",
@@ -413,7 +575,7 @@
         "name": "instance",
         "options": [],
         "query": {
-          "query": "label_values(sysUpTime, instance)",
+          "query": "label_values(up, instance)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 1,

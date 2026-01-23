@@ -6,12 +6,16 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  - job_name: 'snmp'
+  # MikroTik Router Monitoring via SNMP
+  - job_name: 'mikrotik-router'
     scrape_interval: 15s
     scrape_timeout: 10s
     static_configs:
       - targets:
-        - 10.244.222.128 # Your SNMP target
+        - 10.244.222.159:161  # Target Device IP
+        labels:
+          device_type: 'mikrotik'
+          location: 'network'
     metrics_path: /snmp
     params:
       module: [if_mib]
@@ -21,7 +25,27 @@ scrape_configs:
       - source_labels: [__param_target]
         target_label: instance
       - target_label: __address__
-        replacement: snmp-exporter:9116
+        replacement: networkweaver-wireguard:9116
+
+  # SNMP Simulator (for fallback testing)
+  - job_name: 'snmp-simulator'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    static_configs:
+      - targets:
+        - snmp-simulator:161  # Docker SNMP simulator
+        labels:
+          device_type: 'simulator'
+    metrics_path: /snmp
+    params:
+      module: [if_mib]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: networkweaver-wireguard:9116
 
   # Keep backend service discovery for future dynamic targets
   - job_name: 'snmp-dynamic'
@@ -38,4 +62,4 @@ scrape_configs:
       - source_labels: [__param_target]
         target_label: instance
       - target_label: __address__
-        replacement: snmp-exporter:9116
+        replacement: networkweaver-wireguard:9116

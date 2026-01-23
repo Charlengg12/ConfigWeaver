@@ -28,6 +28,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.pytest_cache/
 
 # Node.js
 dist/
@@ -46,3 +47,20 @@ yarn-error.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Production build artifacts
+frontend/dist/
+*.log
+
+# Environment files
+.env.local
+.env.*.local
+.env.production
+
+# Docker volumes (local data)
+postgres_data/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
