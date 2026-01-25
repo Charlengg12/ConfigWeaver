@@ -1,12 +1,30 @@
-import React from 'react';
-import { LayoutDashboard, Server, Settings, Shield, Activity, LogOut, Cpu } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { LayoutDashboard, Server, Settings, Shield, Activity, LogOut, Cpu, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import SidebarItem from './SidebarItem';
+import { apiClient } from '../services/api';
 import logo from '../assets/logo.jpg';
 import './Sidebar.css';
 
 const Sidebar = () => {
     const navigate = useNavigate();
+    const [alertCount, setAlertCount] = useState(0);
+
+    useEffect(() => {
+        const fetchAlerts = async () => {
+            try {
+                const res = await apiClient.get('/monitoring/status');
+                const downCount = res.data.filter(d => d.status === 'DOWN').length;
+                setAlertCount(downCount);
+            } catch (err) {
+                console.error("Failed to fetch alerts", err);
+            }
+        };
+
+        fetchAlerts();
+        const interval = setInterval(fetchAlerts, 30000);
+        return () => clearInterval(interval);
+    }, []);
 
     const handleLogout = () => {
         if (window.confirm("Are you sure you want to log out?")) {
@@ -24,7 +42,12 @@ const Sidebar = () => {
             </div>
 
             <nav className="nav-menu">
-                <SidebarItem icon={LayoutDashboard} label="Overview" to="/" />
+                <div className="nav-item-wrapper">
+                    <SidebarItem icon={LayoutDashboard} label="Overview" to="/" />
+                    {alertCount > 0 && (
+                        <span className="alert-badge">{alertCount}</span>
+                    )}
+                </div>
                 <SidebarItem icon={Activity} label="Monitoring" to="/monitoring" />
                 <SidebarItem icon={Shield} label="Security" to="/security" />
                 <SidebarItem icon={Settings} label="Devices" to="/devices" />

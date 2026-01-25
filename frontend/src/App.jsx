@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Activity, BarChart } from 'lucide-react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
+import AlertSummary from './components/AlertSummary';
 import Security from './pages/Security';
 import Monitoring from './pages/Monitoring';
 import Login from './pages/Login';
@@ -48,6 +49,9 @@ const DashboardHome = () => {
         <h1 className="page-title">System Overview</h1>
       </header>
       <div className="content-grid">
+        <div style={{ gridColumn: '1 / -1' }}>
+          <AlertSummary />
+        </div>
         <div className="card">
           <h3>Active Routers</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', marginTop: '10px' }}>{stats.routers}</p>

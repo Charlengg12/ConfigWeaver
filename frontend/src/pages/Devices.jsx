@@ -15,6 +15,7 @@ const Devices = () => {
         api_port: 8728,
         snmp_community: 'public'
     });
+    const [skipValidation, setSkipValidation] = useState(false);
 
     useEffect(() => {
         fetchDevices();
@@ -42,7 +43,7 @@ const Devices = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            await apiClient.post('/devices/', formData);
+            await apiClient.post(`/devices/?validate_connectivity=${!skipValidation}`, formData);
             setShowAddModal(false);
             setFormData({
                 name: '',
@@ -52,6 +53,7 @@ const Devices = () => {
                 api_port: 8728,
                 snmp_community: 'public'
             });
+            setSkipValidation(false);
             fetchDevices();
         } catch (err) {
             console.error("Failed to add device", err);
@@ -199,6 +201,16 @@ const Devices = () => {
                                         required
                                     />
                                 </div>
+                            </div>
+                            <div className="form-group checkbox-group">
+                                <label className="checkbox-label">
+                                    <input
+                                        type="checkbox"
+                                        checked={skipValidation}
+                                        onChange={(e) => setSkipValidation(e.target.checked)}
+                                    />
+                                    <span>Skip connectivity validation (for non-RouterOS devices)</span>
+                                </label>
                             </div>
                             <div className="modal-actions">
                                 <button type="button" className="btn-text" onClick={() => setShowAddModal(false)}>Cancel</button>
