@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from ... import models, schemas
 from ...database import get_db
 from .connection import get_routeros_connection
+from ...services.prometheus_sync import sync_prometheus_targets
 
 router = APIRouter(
     prefix="/devices",
@@ -52,6 +53,17 @@ def sync_device_identity(device_id: int, db: Session = Depends(get_db)):
         device.name = new_name
         db.commit()
         db.refresh(device)
+        
+        # Sync Prometheus targets (outside try/catch to avoid rollback on sync failure, 
+        # but inside finally or after return would require restructuring. 
+        # Let's do it before return but catch exception to not fail the request)
+        try:
+             # We need to re-query devices or use the session if it's still valid. 
+             # The session 'db' is still open here.
+             sync_prometheus_targets(db)
+        except Exception as ex:
+             # Log but don't fail the user request
+             pass
         
         return {
             "status": "success", 

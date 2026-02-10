@@ -3,17 +3,14 @@
   evaluation_interval: 15s
 
 scrape_configs:
-  # SNMP Exporter for MikroTik routers
+  # SNMP Exporter for MikroTik routers - File-based service discovery
   - job_name: 'snmp'
     scrape_interval: 15s
     scrape_timeout: 14s
-    # Static target for VMware MikroTik CHR on VMnet8
-    static_configs:
-      - targets:
-          - 192.168.247.2
-        labels:
-          hostname: VMware-Mikrotik-CHR
-          device_id: '26'
+    file_sd_configs:
+      - files:
+          - '/etc/prometheus/targets/*.json'
+        refresh_interval: 30s
     metrics_path: /snmp
     params:
       module: [mikrotik]

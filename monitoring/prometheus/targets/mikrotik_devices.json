@@ -1,0 +1,24 @@
+[
+  {
+    "targets": [
+      "192.168.247.2"
+    ],
+    "labels": {
+      "hostname": "VMware-Mikrotik-CHR",
+      "device_id": "30",
+      "device_type": "mikrotik",
+      "job": "snmp"
+    }
+  },
+  {
+    "targets": [
+      "192.168.247.3"
+    ],
+    "labels": {
+      "hostname": "CHR2",
+      "device_id": "32",
+      "device_type": "mikrotik",
+      "job": "snmp"
+    }
+  }
+]

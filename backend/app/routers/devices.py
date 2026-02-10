@@ -7,6 +7,7 @@ import subprocess
 import platform
 import socket
 import logging
+from ..services.prometheus_sync import sync_prometheus_targets
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +125,14 @@ def create_device(
         db.commit()
         
         logger.info(f"Successfully created device {db_device.name} (ID: {db_device.id})")
+        
+        # Sync Prometheus targets
+        sync_result = sync_prometheus_targets(db)
+        if sync_result["success"]:
+            logger.info("Prometheus targets synced successfully")
+        else:
+            logger.error(f"Failed to sync Prometheus targets: {sync_result.get('error')}")
+            
         return db_device
     except Exception as e:
         db.rollback()
@@ -198,4 +207,12 @@ def delete_device(device_id: int, db: Session = Depends(get_db)):
     
     db.commit()
     logger.info(f"Deleted device {db_device.name} (ID: {device_id})")
+    
+    # Sync Prometheus targets
+    sync_result = sync_prometheus_targets(db)
+    if sync_result["success"]:
+        logger.info("Prometheus targets synced successfully")
+    else:
+        logger.error(f"Failed to sync Prometheus targets: {sync_result.get('error')}")
+        
     return {"message": "Device deleted"}

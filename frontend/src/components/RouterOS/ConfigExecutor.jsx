@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { routerosAPI } from '../../services/routeros/api';
 import { apiClient } from '../../services/api';
-import { Terminal, Play, RotateCcw, Box, Hash, ChevronRight, Zap, RefreshCw } from 'lucide-react';
-import { useToast } from '../../App'; // Import from App where Context is exported
+import { Terminal, Play, RotateCcw, Box, Hash, ChevronRight, Zap, RefreshCw, Layers, ArrowRight, Shield, Globe } from 'lucide-react';
+import { useToast } from '../../App';
 
 const ConfigExecutor = () => {
     const [devices, setDevices] = useState([]);
     const [selectedDevice, setSelectedDevice] = useState('');
+
+    // Dynamic Resources
+    const [interfaces, setInterfaces] = useState([]);
+    const [bridges, setBridges] = useState([]);
+    const [vlans, setVlans] = useState([]);
+    const [resourceLoading, setResourceLoading] = useState(false);
+
     const [command, setCommand] = useState('');
     const [logs, setLogs] = useState('');
     const [loading, setLoading] = useState(false);
@@ -18,26 +24,63 @@ const ConfigExecutor = () => {
     // Toast Hook
     const { addToast } = useToast();
 
+    // Fetch Devices
     useEffect(() => {
         const abortController = new AbortController();
-
         apiClient.get('/devices/', { signal: abortController.signal })
             .then(res => setDevices(res.data))
             .catch(err => {
-                if (err.name === 'AbortError' || err.name === 'CanceledError') return;
-                console.error("Failed to fetch devices", err);
+                if (err.name !== 'CanceledError') console.error("Failed to fetch devices", err);
             });
-
-        return () => {
-            abortController.abort();
-        };
+        return () => abortController.abort();
     }, []);
+
+    // Fetch Resources when Device Selected
+    useEffect(() => {
+        if (!selectedDevice) {
+            setInterfaces([]);
+            setBridges([]);
+            setVlans([]);
+            return;
+        }
+
+        const fetchResources = async () => {
+            setResourceLoading(true);
+            try {
+                const [ifaceRes, bridgeRes, vlanRes] = await Promise.allSettled([
+                    apiClient.get(`/routeros/resources/${selectedDevice}/interfaces`),
+                    apiClient.get(`/routeros/resources/${selectedDevice}/bridges`),
+                    apiClient.get(`/routeros/resources/${selectedDevice}/vlans`)
+                ]);
+
+                if (ifaceRes.status === 'fulfilled') setInterfaces(ifaceRes.value.data);
+                if (bridgeRes.status === 'fulfilled') setBridges(bridgeRes.value.data);
+                if (vlanRes.status === 'fulfilled') setVlans(vlanRes.value.data);
+
+            } catch (error) {
+                console.error("Resource fetch error:", error);
+                addToast("Failed to fetch device resources", "warning");
+            } finally {
+                setResourceLoading(false);
+            }
+        };
+
+        fetchResources();
+    }, [selectedDevice]);
+
+    // Smart Defaults Logic
+    useEffect(() => {
+        if (template === 'lan_setup' && params['Interface']) {
+            // Auto-suggest IP based on interface existing addresses? 
+            // For now, let's just use defaults if empty
+            if (!params['DNS']) setParams(p => ({ ...p, 'DNS': '8.8.8.8,1.1.1.1' }));
+        }
+    }, [template, params['Interface']]);
 
     const handleExecute = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
-            // Use /config/deploy endpoint for all templates
             const res = await apiClient.post('/config/deploy', {
                 device_id: parseInt(selectedDevice),
                 template_name: template,
@@ -46,6 +89,14 @@ const ConfigExecutor = () => {
             const msg = res.data.message || 'Configuration applied successfully';
             setLogs(prev => `[Success] ${new Date().toLocaleTimeString()}: ${msg}\n${prev}`);
             addToast(`Success: ${msg}`, 'success');
+
+            // Refresh resources after successful config
+            if (template.includes('interface') || template.includes('bridge')) {
+                // re-trigger resource fetch
+                const ifaceRes = await apiClient.get(`/routeros/resources/${selectedDevice}/interfaces`);
+                setInterfaces(ifaceRes.data);
+            }
+
         } catch (error) {
             const errDetails = error.response?.data?.detail || error.message;
             setLogs(prev => `[Error] ${new Date().toLocaleTimeString()}: ${errDetails}\n${prev}`);
@@ -56,136 +107,128 @@ const ConfigExecutor = () => {
     };
 
     const templates = [
-        // Bridge Templates
+        // --- Quick Actions (Workflow Composite) ---
+        {
+            id: 'lan_setup', category: 'Quick Actions', name: 'LAN Setup (IP + DHCP + NAT)',
+            fields: [
+                { name: 'Interface', type: 'select', source: 'interfaces' },
+                { name: 'IP Address', type: 'text', placeholder: '192.168.88.1/24' },
+                { name: 'DHCP Server', type: 'select', options: ['yes', 'no'], default: 'yes' },
+                { name: 'DNS', type: 'text', default: '8.8.8.8,1.1.1.1' }
+            ]
+        },
+        {
+            id: 'wan_setup', category: 'Quick Actions', name: 'WAN Setup (DHCP Client + Firewall)',
+            fields: [
+                { name: 'Interface', type: 'select', source: 'interfaces' },
+                { name: 'Firewall', type: 'select', options: ['yes', 'no'], default: 'yes' }
+            ]
+        },
+
+        // --- Bridge ---
         {
             id: 'bridge_add', category: 'Bridge', name: 'Add Bridge',
-            fields: ['Bridge Name']
+            fields: [{ name: 'Bridge Name', type: 'text' }]
         },
         {
             id: 'bridge_add_port', category: 'Bridge', name: 'Add Port to Bridge',
-            fields: ['Bridge Name', 'Interface']
+            fields: [
+                { name: 'Bridge Name', type: 'select', source: 'bridges' },
+                { name: 'Interface', type: 'select', source: 'interfaces' }
+            ]
         },
-        {
-            id: 'bridge_delete', category: 'Bridge', name: 'Delete Bridge',
-            fields: ['Bridge Name']
-        },
-        {
-            id: 'bridge_delete_port', category: 'Bridge', name: 'Delete Port from Bridge',
-            fields: ['Bridge Name', 'Interface']
-        },
-        {
-            id: 'bridge_vlan_add', category: 'Bridge', name: 'Add Bridge VLAN',
-            fields: ['Bridge Name', 'VLAN ID', 'Tagged Ports', 'Untagged Ports']
-        },
-
-        // Wireguard Templates
-        {
-            id: 'wireguard_create', category: 'Wireguard', name: 'Create Wireguard Interface',
-            fields: ['Interface Name', 'Listen Port', 'Private Key (optional)']
-        },
-
-        // IP Templates
+        // --- IP ---
         {
             id: 'ip_address_add', category: 'IP', name: 'Add IP Address',
-            fields: ['Interface', 'IP Address', 'Network']
-        },
-        {
-            id: 'dhcp_server_add', category: 'IP', name: 'Add DHCP Server',
-            fields: ['Interface', 'Pool Name', 'Address Pool', 'Gateway', 'DNS']
-        },
-        {
-            id: 'dhcp_client_add', category: 'IP', name: 'Add DHCP Client',
-            fields: ['Interface', 'Add Default Route']
+            fields: [
+                { name: 'Interface', type: 'select', source: 'interfaces' },
+                { name: 'IP Address', type: 'text', placeholder: '10.0.0.1/24' }
+            ]
         },
         {
             id: 'dns_config', category: 'IP', name: 'DNS Configuration',
-            fields: ['Primary DNS', 'Secondary DNS', 'Allow Remote Requests']
+            fields: [
+                { name: 'Primary DNS', type: 'text', default: '8.8.8.8' },
+                { name: 'Secondary DNS', type: 'text', default: '1.1.1.1' },
+                { name: 'Allow Remote Requests', type: 'select', options: ['yes', 'no'], default: 'yes' }
+            ]
         },
-        {
-            id: 'route_static_add', category: 'IP', name: 'Add Static Route',
-            fields: ['Destination', 'Gateway', 'Distance']
-        },
-
-        // Dynamic Routing Templates
-        {
-            id: 'ospf_config', category: 'Routing', name: 'OSPF Configuration',
-            fields: ['Router ID', 'Area', 'Networks', 'Redistribute Connected']
-        },
-        {
-            id: 'rip_config', category: 'Routing', name: 'RIP Configuration',
-            fields: ['Networks', 'Redistribute Connected', 'Redistribute Static']
-        },
-        {
-            id: 'bgp_config', category: 'Routing', name: 'BGP Configuration',
-            fields: ['AS Number', 'Router ID', 'Peer AS', 'Peer Address', 'Networks']
-        },
-
-        // Firewall Templates
-        {
-            id: 'firewall_filter_add', category: 'Firewall', name: 'Add Filter Rule',
-            fields: ['Chain', 'Protocol', 'Dst Port', 'Action', 'Src Address', 'Comment']
-        },
-
-        // Services Templates
-        {
-            id: 'service_toggle', category: 'Services', name: 'Enable/Disable Service',
-            fields: ['Service Name', 'State (enable/disable)', 'Port']
-        },
-        {
-            id: 'ftp_config', category: 'Services', name: 'Configure FTP Service',
-            fields: ['State (enable/disable)', 'Port', 'Max Sessions']
-        },
-
-        // NAT Templates
+        // --- NAT ---
         {
             id: 'nat_masquerade', category: 'NAT', name: 'NAT Masquerade',
-            fields: ['Out Interface', 'Src Address']
+            fields: [
+                { name: 'Out Interface', type: 'select', source: 'interfaces' }
+            ]
         },
         {
-            id: 'nat_dst', category: 'NAT', name: 'Destination NAT (Port Forward)',
-            fields: ['Protocol', 'Dst Port', 'To Address', 'To Port']
+            id: 'nat_dst', category: 'NAT', name: 'Port Forward (DstNAT)',
+            fields: [
+                { name: 'Protocol', type: 'select', options: ['tcp', 'udp'], default: 'tcp' },
+                { name: 'Dst Port', type: 'text' },
+                { name: 'To Address', type: 'text' },
+                { name: 'To Port', type: 'text' }
+            ]
         },
-
-        // System Templates
-        {
-            id: 'system_identity', category: 'System', name: 'Set System Identity',
-            fields: ['Identity Name']
-        },
-        {
-            id: 'user_add', category: 'System', name: 'Add User',
-            fields: ['Username', 'Password', 'Group']
-        },
-        {
-            id: 'user_remove', category: 'System', name: 'Remove User',
-            fields: ['Username']
-        },
-
-        // Interface Templates
-        {
-            id: 'interface_vlan_add', category: 'Interfaces', name: 'Add VLAN Interface',
-            fields: ['Interface Name', 'VLAN ID', 'Parent Interface']
-        },
-        {
-            id: 'interface_rename', category: 'Interfaces', name: 'Rename Interface',
-            fields: ['Current Name', 'New Name']
-        },
-        {
-            id: 'interface_remove', category: 'Interfaces', name: 'Remove Interface',
-            fields: ['Interface Name']
-        },
-
-        // Custom Command
+        // --- Custom ---
         { id: 'custom', category: 'Custom', name: 'Custom Command', fields: [] }
     ];
 
-    // Group templates by category
     const templateCategories = [...new Set(templates.map(t => t.category))];
+
+    // Helper to render fields
+    const renderField = (field) => {
+        const value = params[field.name] !== undefined ? params[field.name] : (field.default || '');
+
+        // Handle Selects
+        if (field.type === 'select') {
+            let options = [];
+            if (field.source === 'interfaces') options = interfaces.map(i => i.name);
+            else if (field.source === 'bridges') options = bridges.map(b => b.name);
+            else if (field.options) options = field.options;
+
+            return (
+                <div className="form-group" key={field.name}>
+                    <label className="input-label">
+                        {field.name}
+                        {resourceLoading && field.source && <RefreshCw size={10} className="spin" style={{ marginLeft: 5 }} />}
+                    </label>
+                    <select
+                        className="input-field"
+                        value={value}
+                        onChange={e => setParams(prev => ({ ...prev, [field.name]: e.target.value }))}
+                        disabled={resourceLoading && !!field.source}
+                        required
+                    >
+                        <option value="">Select {field.name}...</option>
+                        {options.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                    </select>
+                </div>
+            );
+        }
+
+        // Handle Text
+        return (
+            <div className="form-group" key={field.name}>
+                <label className="input-label">{field.name}</label>
+                <input
+                    type="text"
+                    className="input-field"
+                    value={value}
+                    onChange={e => setParams(prev => ({ ...prev, [field.name]: e.target.value }))}
+                    placeholder={field.placeholder || ''}
+                    required
+                />
+            </div>
+        );
+    };
 
     return (
         <div className="config-executor-container fade-in">
             <header className="page-header" style={{ border: 'none', paddingBottom: 0 }}>
                 <h2 className="section-title">Configuration Studio</h2>
-                <p className="page-subtitle">Deploy scripts and manage device configurations</p>
+                <p className="page-subtitle">Smart configuration deployment with live resource data</p>
             </header>
 
             <div className="executor-grid">
@@ -193,9 +236,7 @@ const ConfigExecutor = () => {
                     <div className="card">
                         <form onSubmit={handleExecute}>
                             <div className="form-group">
-                                <label className="input-label">
-                                    <Box size={14} /> Target Device
-                                </label>
+                                <label className="input-label">Target Device</label>
                                 <select
                                     className="input-field"
                                     value={selectedDevice}
@@ -208,9 +249,7 @@ const ConfigExecutor = () => {
                             </div>
 
                             <div className="form-group">
-                                <label className="input-label">
-                                    <Hash size={14} /> Template
-                                </label>
+                                <label className="input-label">Template</label>
                                 <select
                                     className="input-field"
                                     value={template}
@@ -221,51 +260,37 @@ const ConfigExecutor = () => {
                                 >
                                     {templateCategories.map(category => (
                                         <optgroup key={category} label={category}>
-                                            {templates
-                                                .filter(t => t.category === category)
-                                                .map(t => (
-                                                    <option key={t.id} value={t.id}>
-                                                        {t.name}
-                                                    </option>
-                                                ))}
+                                            {templates.filter(t => t.category === category).map(t => (
+                                                <option key={t.id} value={t.id}>{t.name}</option>
+                                            ))}
                                         </optgroup>
                                     ))}
                                 </select>
                             </div>
 
-                            {template === 'custom' ? (
-                                <div className="form-group">
-                                    <label className="input-label">
-                                        <ChevronRight size={14} /> Command / Script
-                                    </label>
-                                    <textarea
-                                        className="input-field"
-                                        value={command}
-                                        onChange={e => setCommand(e.target.value)}
-                                        placeholder="/system/identity/print"
-                                        rows="5"
-                                        style={{ fontFamily: 'var(--font-mono)' }}
-                                    />
-                                </div>
-                            ) : (
-                                <div className="template-fields">
-                                    {templates.find(t => t.id === template)?.fields.map(field => (
-                                        <div className="form-group" key={field}>
-                                            <label className="input-label">{field}</label>
-                                            <input
-                                                type="text"
-                                                className="input-field"
-                                                onChange={e => setParams(prev => ({ ...prev, [field]: e.target.value }))}
-                                                required
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                            <div className="template-fields-container" style={{ minHeight: 150 }}>
+                                {template === 'custom' ? (
+                                    <div className="form-group">
+                                        <label className="input-label">Command / Script</label>
+                                        <textarea
+                                            className="input-field"
+                                            value={command}
+                                            onChange={e => setCommand(e.target.value)}
+                                            placeholder="/system/identity/print"
+                                            rows="5"
+                                            style={{ fontFamily: 'var(--font-mono)' }}
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="template-fields">
+                                        {templates.find(t => t.id === template)?.fields.map(field => renderField(field))}
+                                    </div>
+                                )}
+                            </div>
 
                             <div className="action-row">
                                 <button type="submit" className="btn-primary" disabled={loading || !selectedDevice}>
-                                    {loading ? <RefreshCw className="spin" size={18} /> : <Play size={18} />}
+                                    {loading ? <RefreshCw className="spin" size={18} /> : <Zap size={18} />}
                                     {loading ? 'Executing...' : 'Run Configuration'}
                                 </button>
                                 <button
@@ -302,7 +327,7 @@ const ConfigExecutor = () => {
                                     </div>
                                 ))
                             ) : (
-                                <div className="log-empty">Shell ready. Waiting for input...</div>
+                                <div className="log-empty">Waiting for command...</div>
                             )}
                         </div>
                         <footer className="log-footer">
@@ -328,15 +353,14 @@ const ConfigExecutor = () => {
                     margin-bottom: 1.25rem;
                 }
                 .input-label {
-                    display: block;
+                    display: flex;
+                    align-items: center;
                     font-size: 0.75rem;
                     font-weight: 600;
                     color: var(--text-muted);
                     text-transform: uppercase;
                     letter-spacing: 0.05em;
                     margin-bottom: 0.5rem;
-                    display: flex;
-                    align-items: center;
                     gap: 6px;
                 }
                 .action-row {
@@ -363,7 +387,7 @@ const ConfigExecutor = () => {
                     max-height: 600px;
                     display: flex;
                     flex-direction: column;
-                    background: #111; /* Darker than card */
+                    background: #111; 
                     border-color: var(--border-color);
                 }
                 .log-header {

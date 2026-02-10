@@ -1,11 +1,33 @@
 from fastapi import FastAPI
 from .database import engine, Base
+from .database import engine, Base, SessionLocal
 from .routers import configuration, auth, devices, routeros, monitoring, prometheus_metrics
+from .routers.routeros import resources
+from .services.prometheus_sync import sync_prometheus_targets
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Create tables (In production, use Alembic)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="NetworkWeaver API")
+
+@app.on_event("startup")
+def startup_event():
+    """Sync Prometheus targets on startup"""
+    try:
+        db = SessionLocal()
+        try:
+            result = sync_prometheus_targets(db)
+            if result["success"]:
+                logger.info(f"Startup: Synced {result['targets_count']} Prometheus targets")
+            else:
+                logger.error(f"Startup: Failed to sync Prometheus targets: {result.get('error')}")
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Startup sync error: {e}")
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -26,6 +48,7 @@ app.include_router(configuration.router)
 app.include_router(auth.router)
 app.include_router(devices.router)
 app.include_router(routeros.router)
+app.include_router(resources.router)
 app.include_router(monitoring.router)
 app.include_router(prometheus_metrics.router)
 from .routers import logs

@@ -334,6 +334,66 @@ def deploy_configuration(request: schemas.ConfigRequest, db: Session = Depends(g
             # Create firewall filter rule to drop matching traffic
             api.get_resource('/ip/firewall/filter').add(chain='forward', layer7_protocol=l7_name, action='drop', comment=f"Block {url}")
             details = f"Website {url} blocked using Layer 7 protocol."
+        elif request.template_name == "wan_setup":
+            interface = request.params.get("Interface")
+            firewall = request.params.get("Firewall", "yes")
+
+            # 1. DHCP Client
+            api.get_resource('/ip/dhcp-client').add(interface=interface, add_default_route="yes", disabled="no")
+            details = f"WAN Setup on {interface}: DHCP Client added."
+
+            # 2. Firewall (Masquerade)
+            api.get_resource('/ip/firewall/nat').add(chain='srcnat', action='masquerade', out_interface=interface)
+            details += " NAT Masquerade added."
+
+            # 3. Basic Input Firewall (optional)
+            if firewall == "yes":
+                try:
+                    api.get_resource('/ip/firewall/filter').add(
+                        chain='input', connection_state='established,related', action='accept', comment="Accept Established"
+                    )
+                    api.get_resource('/ip/firewall/filter').add(
+                        chain='input', in_interface=interface, action='drop', comment="Drop WAN Input"
+                    )
+                    details += " Firewall rules added."
+                except Exception:
+                    details += " (Firewall rules skipped/failed)."
+
+        elif request.template_name == "lan_setup":
+            interface = request.params.get("Interface")
+            ip = request.params.get("IP Address")
+            network = request.params.get("Network") # Optional, calculated if missing
+            dhcp = request.params.get("DHCP Server", "yes")
+            dns = request.params.get("DNS", "8.8.8.8,1.1.1.1")
+
+            # 1. Add IP
+            # Calculate network if not provided (simple class C assumption for simplicity if needed, but safe to require or calc)
+            # RouterOS usually calculates network automatically if you just give address with /24.
+            # But api might need it. Let's try adding address only if network is empty.
+            ip_params = {'interface': interface, 'address': ip}
+            if network:
+                ip_params['network'] = network
+            
+            api.get_resource('/ip/address').add(**ip_params)
+            details = f"LAN Setup on {interface}: IP {ip} added."
+
+            # 2. DHCP Server
+            if dhcp == "yes":
+                # Calculate pool range from IP (assuming /24 for simplicity or user provided)
+                # primitive logic: take IP 192.168.88.1/24 -> 192.168.88.10-192.168.88.254
+                try:
+                    ip_addr = ip.split('/')[0]
+                    base = ip_addr.rsplit('.', 1)[0]
+                    pool_ranges = f"{base}.10-{base}.254"
+                    pool_name = f"{interface}-pool"
+                    
+                    api.get_resource('/ip/pool').add(name=pool_name, ranges=pool_ranges)
+                    api.get_resource('/ip/dhcp-server/network').add(address=f"{base}.0/24", gateway=ip_addr, **{'dns-server': dns})
+                    api.get_resource('/ip/dhcp-server').add(name=f"{interface}-dhcp", interface=interface, **{'address-pool': pool_name}, disabled="no")
+                    details += " DHCP Server configured."
+                except Exception as e:
+                    details += f" (DHCP failed: {e})"
+
         else:
             raise ValueError(f"Unknown template: {request.template_name}")
 

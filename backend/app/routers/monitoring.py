@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, Query, BackgroundTasks, HTTPException
 from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..database import get_db
 from .routeros.connection import sync_identity
+from ..services.prometheus_sync import sync_prometheus_targets, get_current_targets
 import platform
 import subprocess
 import logging
@@ -188,4 +189,34 @@ def get_monitoring_health(db: Session = Depends(get_db)) -> Dict[str, Any]:
         "reachable": reachable,
         "unreachable": unreachable,
         "health_percentage": round(health_percentage, 2)
+    }
+
+@router.post("/sync-targets")
+def sync_targets_endpoint(db: Session = Depends(get_db)) -> Dict:
+    """
+    Manually trigger sync of devices to Prometheus targets file.
+    
+    This endpoint syncs all devices from the database to the Prometheus
+    file-based service discovery targets file.
+    """
+    result = sync_prometheus_targets(db)
+    
+    if not result["success"]:
+        raise HTTPException(status_code=500, detail=result.get("message", "Sync failed"))
+    
+    return result
+
+
+@router.get("/targets-file")
+def get_targets_file() -> Dict:
+    """
+    Get current Prometheus targets from file.
+    
+    Returns the current contents of the Prometheus targets file.
+    """
+    targets = get_current_targets()
+    
+    return {
+        "targets": targets,
+        "count": len(targets)
     }

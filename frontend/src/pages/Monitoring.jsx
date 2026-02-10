@@ -1,8 +1,8 @@
 import React from 'react';
 
 const Monitoring = () => {
-    // Kiosk mode URL for cleaner look
-    const GRAFANA_URL = "http://localhost:3000/d/mikrotik-exporter/mikrotik-monitoring?orgId=1&kiosk";
+    // Mikrotik Dashboard - Kiosk mode for cleaner embedded view
+    const GRAFANA_URL = "http://localhost:3000/d/LyX-A_nnk/mikrotik?orgId=1&kiosk&theme=dark";
 
     return (
         <div style={{ width: '100%', height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
