@@ -100,11 +100,12 @@ def deploy_configuration(request: schemas.ConfigRequest, db: Session = Depends(g
         # --- WIREGUARD ---
         elif request.template_name == "wireguard_create":
             name = request.params.get("Interface Name")
-            port = request.params.get("Listen Port")
-            private_key = request.params.get("Private Key (optional)")
+            port = request.params.get("Listen Port", "13231")
+            private_key = request.params.get("Private Key (optional)", "")
             res = api.get_resource('/interface/wireguard')
-            params = {'name': name, 'listen-port': port}
-            if private_key: params['private-key'] = private_key
+            params = {'name': name, 'listen-port': int(port)}
+            if private_key and private_key.strip():
+                params['private-key'] = private_key
             res.add(**params)
             details = f"Wireguard interface '{name}' created on port {port}."
 
@@ -122,14 +123,14 @@ def deploy_configuration(request: schemas.ConfigRequest, db: Session = Depends(g
             gateway = request.params.get("Gateway")
             dns = request.params.get("DNS")
             pool_ranges = request.params.get("Address Pool")
+            network = request.params.get("Network", pool_ranges.split('-')[0].rsplit('.', 1)[0] + '.0/24')
             
             # 1. Create Pool
             api.get_resource('/ip/pool').add(name=pool_name, ranges=pool_ranges)
-            # 2. Add Network
-            api.get_resource('/ip/dhcp-server/network').add(address=pool_ranges, gateway=gateway, dns_server=dns) # Approximating network from pool range is risky, usually user supplies subnet. 
-            # Simplification: we might assuming the network is derived or user inputs valid data.
+            # 2. Add Network (use proper network parameter)
+            api.get_resource('/ip/dhcp-server/network').add(address=network, gateway=gateway, **{'dns-server': dns})
             # 3. Add Server
-            api.get_resource('/ip/dhcp-server').add(name=f"{interface}_server", interface=interface, address_pool=pool_name, disabled="no")
+            api.get_resource('/ip/dhcp-server').add(name=f"{interface}-dhcp", interface=interface, **{'address-pool': pool_name}, disabled="no")
             details = f"DHCP Server created on {interface} with pool {pool_name}."
 
         elif request.template_name == "dhcp_client_add":
@@ -140,11 +141,12 @@ def deploy_configuration(request: schemas.ConfigRequest, db: Session = Depends(g
 
         elif request.template_name == "dns_config":
             primary = request.params.get("Primary DNS")
-            secondary = request.params.get("Secondary DNS")
+            secondary = request.params.get("Secondary DNS", "")
             remote = request.params.get("Allow Remote Requests", "yes")
-            servers = f"{primary},{secondary}" if secondary else primary
-            api.get_resource('/ip/dns').set(servers=servers, allow_remote_requests=remote)
-            details = f"DNS set to {servers}."
+            servers = f"{primary},{secondary}" if secondary and secondary.strip() else primary
+            # Use proper parameter names
+            api.get_resource('/ip/dns').set(servers=servers, **{'allow-remote-requests': remote})
+            details = f"DNS configured: {servers}, remote requests: {remote}."
 
         elif request.template_name == "route_static_add":
             dst = request.params.get("Destination")
@@ -222,16 +224,35 @@ def deploy_configuration(request: schemas.ConfigRequest, db: Session = Depends(g
             else:
                 details = f"Service {service} not found."
 
+        elif request.template_name == "ftp_config":
+            state = request.params.get("State (enable/disable)", "enable")
+            port = request.params.get("Port", "21")
+            max_sessions = request.params.get("Max Sessions", "10")
+            
+            res = api.get_resource('/ip/service')
+            items = res.get(name="ftp")
+            if items and len(items) > 0:
+                params = {
+                    'disabled': 'no' if state == 'enable' else 'yes',
+                    'port': int(port)
+                }
+                res.set(id=items[0]['id'], **params)
+                details = f"FTP service {state}d on port {port}."
+            else:
+                raise ValueError("FTP service not available on this device.")
+
+
         # --- NAT ---
         elif request.template_name == "nat_masquerade":
             out_interface = request.params.get("Out Interface")
-            src_address = request.params.get("Src Address")
+            src_address = request.params.get("Src Address", "")
             
             params = {'chain': 'srcnat', 'action': 'masquerade', 'out-interface': out_interface}
-            if src_address: params['src-address'] = src_address
+            if src_address and src_address.strip():
+                params['src-address'] = src_address
             
             api.get_resource('/ip/firewall/nat').add(**params)
-            details = f"Masquerade enabled on {out_interface}."
+            details = f"NAT Masquerade rule added for {out_interface}."
 
         elif request.template_name == "nat_dst":
             protocol = request.params.get("Protocol")
@@ -240,10 +261,10 @@ def deploy_configuration(request: schemas.ConfigRequest, db: Session = Depends(g
             to_port = request.params.get("To Port")
             
             api.get_resource('/ip/firewall/nat').add(
-                chain='dstnat', protocol=protocol, dst_port=dst_port, action='dst-nat', 
-                to_addresses=to_addr, to_ports=to_port, comment="NAT DST Port Forward"
+                chain='dstnat', protocol=protocol, **{'dst-port': dst_port}, action='dst-nat', 
+                **{'to-addresses': to_addr, 'to-ports': to_port}, comment="Port Forward"
             )
-            details = f"Port Forward {dst_port} -> {to_addr}:{to_port}."
+            details = f"Destination NAT: {protocol}/{dst_port} -> {to_addr}:{to_port}."
 
         # --- SYSTEM ---
         elif request.template_name == "system_identity":
@@ -280,12 +301,27 @@ def deploy_configuration(request: schemas.ConfigRequest, db: Session = Depends(g
             current_name = request.params.get("Current Name")
             new_name = request.params.get("New Name")
             res = api.get_resource('/interface')
-            item = res.get(name=current_name)
-            if item:
-                res.set(id=item[0]['id'], name=new_name)
-                details = f"Interface renamed from {current_name} to {new_name}."
+            items = res.get(name=current_name)
+            if items and len(items) > 0:
+                res.set(id=items[0]['id'], name=new_name)
+                details = f"Interface renamed: {current_name} -> {new_name}."
             else:
-                details = f"Interface {current_name} not found."
+                raise ValueError(f"Interface '{current_name}' not found.")
+
+        elif request.template_name == "interface_remove":
+            name = request.params.get("Interface Name")
+            res = api.get_resource('/interface')
+            items = res.get(name=name)
+            if items and len(items) > 0:
+                # Only allow removal of virtual interfaces (VLAN, bridge, etc)
+                if_type = items[0].get('type', '')
+                if if_type in ['vlan', 'bridge', 'wireguard', 'veth', 'bonding']:
+                    res.remove(id=items[0]['id'])
+                    details = f"Interface '{name}' removed."
+                else:
+                    raise ValueError(f"Cannot remove physical interface '{name}'. Only virtual interfaces can be removed.")
+            else:
+                raise ValueError(f"Interface '{name}' not found.")
 
 
         # --- BLOCK WEBSITE ---

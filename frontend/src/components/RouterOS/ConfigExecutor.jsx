@@ -131,6 +131,10 @@ const ConfigExecutor = () => {
             id: 'service_toggle', category: 'Services', name: 'Enable/Disable Service',
             fields: ['Service Name', 'State (enable/disable)', 'Port']
         },
+        {
+            id: 'ftp_config', category: 'Services', name: 'Configure FTP Service',
+            fields: ['State (enable/disable)', 'Port', 'Max Sessions']
+        },
 
         // NAT Templates
         {
@@ -164,6 +168,10 @@ const ConfigExecutor = () => {
         {
             id: 'interface_rename', category: 'Interfaces', name: 'Rename Interface',
             fields: ['Current Name', 'New Name']
+        },
+        {
+            id: 'interface_remove', category: 'Interfaces', name: 'Remove Interface',
+            fields: ['Interface Name']
         },
 
         // Custom Command
